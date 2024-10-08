@@ -19,7 +19,7 @@ bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
 
-def parse_text_with_name(url, full_name):
+def parse_text_from_site(url, full_name):
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Открытие браузера в фоновом режиме
     chrome_options.add_argument("--no-sandbox")
@@ -39,18 +39,12 @@ def parse_text_with_name(url, full_name):
         logger.info(f"ФИО введено: {full_name}")
         
         # Пауза для обновления страницы после ввода текста
-        time.sleep(3)  # Задержка в 3 секунды для обновления
+        time.sleep(5)  # Задержка в 5 секунд
         
-        # Поиск текста результата
-        results = driver.find_elements("css selector", 'button[class="SearchNameResults_name_V2vW D"]')
-        parsed_results = [result.text for result in results if result.text]  # Извлечение текста из элементов
-        
-        logger.info("Результаты успешно извлечены")
-        
-        if parsed_results:
-            return "\n\n".join(parsed_results)  # Форматируем текст с пропусками как на сайте
-        else:
-            return "Результатов не найдено."
+        # Поиск текста по заданному селектору
+        parsed_text = driver.find_element("css selector", 'button[class="SearchNameResults_name_V2vW D"]').text
+        logger.info("Текст успешно извлечен")
+        return parsed_text
 
     except Exception as e:
         logger.error(f"Произошла ошибка: {str(e)}")
@@ -69,11 +63,11 @@ def handle_name(message):
     full_name = user_data[message.chat.id]
     url = "https://dolg.xyz"
     
-    parsed_text = parse_text_with_name(url, full_name)
+    parsed_text = parse_text_from_site(url, full_name)
     
     if parsed_text:
-        bot.reply_to(message, f"Результаты поиска:\n\n{parsed_text}")
+        bot.reply_to(message, f"Результат поиска:\n{parsed_text}")
     else:
-        bot.reply_to(message, "Произошла ошибка при парсинге данных. Попробуйте снова.")
+        bot.reply_to(message, "Произошла ошибка при парсинге текста. Попробуйте снова.")
 
 bot.polling()
