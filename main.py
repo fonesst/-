@@ -2,10 +2,10 @@ import telebot
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 import logging
 import time
 import random
@@ -21,7 +21,7 @@ bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
 
-def parse_text_with_name(url, full_name):
+def parse_debt_info(url, full_name):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
@@ -40,31 +40,31 @@ def parse_text_with_name(url, full_name):
         search_input.send_keys(full_name)
         logger.info(f"ФИО введено: {full_name}")
         
-        # Пауза для обновления страницы после ввода текста
-        time.sleep(5)  # Задержка в 5 секунд
+        # Ожидание 5 секунд
+        time.sleep(5)
         
-        # Парсинг текста из указанного элемента
+        # Поиск и извлечение текста из указанного элемента
         try:
-            element = WebDriverWait(driver, 10).until(
+            debt_info = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, 'ul[class="SearchNameResults_content_rDYQT"]'))
             )
-            parsed_text = element.text
-            logger.info("Текст успешно спарсен")
+            parsed_text = debt_info.text
+            logger.info("Информация о долгах успешно извлечена")
             return parsed_text
-        except:
-            logger.error("Элемент не найден или не содержит текста")
-            return "Информация не найдена"
+        except Exception as e:
+            logger.error(f"Не удалось найти информацию о долгах: {str(e)}")
+            return "Информация о долгах не найдена."
 
     except Exception as e:
         logger.error(f"Произошла ошибка: {str(e)}")
-        return "Произошла ошибка при поиске информации"
+        return "Произошла ошибка при поиске информации."
 
     finally:
         driver.quit()
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "Привет! Введите ваше ФИО для поиска на сайте.")
+    bot.reply_to(message, "Привет! Введите ваше ФИО для поиска информации о долгах.")
 
 @bot.message_handler(func=lambda message: True)
 def handle_name(message):
@@ -72,11 +72,8 @@ def handle_name(message):
     full_name = user_data[message.chat.id]
     url = "https://dolg.xyz"
     
-    parsed_text = parse_text_with_name(url, full_name)
+    debt_info = parse_debt_info(url, full_name)
     
-    if parsed_text:
-        bot.reply_to(message, f"Результаты поиска для {full_name}:\n\n{parsed_text}")
-    else:
-        bot.reply_to(message, "Произошла ошибка при поиске информации. Попробуйте снова.")
+    bot.reply_to(message, f"Результат поиска для {full_name}:\n\n{debt_info}")
 
 bot.polling()
