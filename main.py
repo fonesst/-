@@ -3,12 +3,12 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-import os
-import logging
-import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import os
+import logging
+import time
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -34,26 +34,24 @@ def get_parsed_text(url, full_name):
         driver.get(url)
         logger.info(f"Загружена страница: {url}")
         
-        # Ожидаем появления поля поиска
-        wait = WebDriverWait(driver, 10)
-        search_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[class="SearchNameInput_input__M6_k8"]')))
-        
         # Ввод ФИО в поле поиска
+        search_input = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'input[class="SearchNameInput_input__M6_k8"]'))
+        )
         search_input.send_keys(full_name)
         logger.info(f"ФИО введено: {full_name}")
         
-        # Ожидание появления результатов
-        wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="Card_card_Oh16E SearchNameResults_card_MeQI_"]')))
+        # Ожидание обновления страницы и загрузки кнопок
+        buttons = WebDriverWait(driver, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'button[class="SearchNameResults_name_V2vWD"]'))
+        )
         
-        # Поиск элементов, содержащих результат
-        results = driver.find_elements(By.CSS_SELECTOR, 'div[class="Card_card_Oh16E SearchNameResults_card_MeQI_"]')
-        if results:
-            # Собираем текст из каждого найденного элемента
-            parsed_text = "\n".join([result.text for result in results])
-            logger.info(f"Распарсено {len(results)} результатов.")
-        else:
-            logger.info("Результаты не найдены.")
-            parsed_text = "Результаты не найдены."
+        # Собираем текст кнопок
+        button_texts = "\n".join([button.text for button in buttons])
+        logger.info(f"Распарсено {len(buttons)} кнопок.")
+        
+        # Ожидание завершения всех действий на странице перед созданием скриншота
+        time.sleep(2)
         
         # Создание полного скриншота страницы
         screenshot_path = 'full_page_screenshot.png'
@@ -64,7 +62,7 @@ def get_parsed_text(url, full_name):
         driver.save_screenshot(screenshot_path)
         logger.info("Полный скриншот сохранен.")
         
-        return parsed_text, screenshot_path
+        return button_texts, screenshot_path
 
     except Exception as e:
         logger.error(f"Произошла ошибка: {str(e)}")
