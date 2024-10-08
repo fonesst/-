@@ -2,13 +2,12 @@ import telebot
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+import os
 import logging
 import time
 import random
+from selenium.webdriver.common.by import By
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -21,9 +20,9 @@ bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
 
-def parse_debt_info(url, full_name):
+def get_parsed_text(url, full_name):
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless")  # Открытие браузера в фоновом режиме
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36")
@@ -40,31 +39,30 @@ def parse_debt_info(url, full_name):
         search_input.send_keys(full_name)
         logger.info(f"ФИО введено: {full_name}")
         
-        # Ожидание 5 секунд
-        time.sleep(5)
+        # Пауза для обновления страницы после ввода текста
+        time.sleep(5)  # Увеличенная задержка до 5 секунд для симуляции ожидания
         
-        # Поиск и извлечение текста из указанного элемента
-        try:
-            debt_info = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'ul[class="SearchNameResults_content_rDYQT"]'))
-            )
-            parsed_text = debt_info.text
-            logger.info("Информация о долгах успешно извлечена")
+        # Поиск элементов, содержащих результат
+        results = driver.find_elements(By.CSS_SELECTOR, 'ul[class="SearchNameResults_content_rDYQT"] li')
+        if results:
+            # Собираем текст из каждого найденного элемента
+            parsed_text = "\n".join([result.text for result in results])
+            logger.info(f"Распарсено {len(results)} результатов.")
             return parsed_text
-        except Exception as e:
-            logger.error(f"Не удалось найти информацию о долгах: {str(e)}")
-            return "Информация о долгах не найдена."
+        else:
+            logger.info("Результаты не найдены.")
+            return "Результаты не найдены."
 
     except Exception as e:
         logger.error(f"Произошла ошибка: {str(e)}")
-        return "Произошла ошибка при поиске информации."
+        return None
 
     finally:
         driver.quit()
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "Привет! Введите ваше ФИО для поиска информации о долгах.")
+    bot.reply_to(message, "Привет! Введите ваше ФИО для поиска на сайте.")
 
 @bot.message_handler(func=lambda message: True)
 def handle_name(message):
@@ -72,8 +70,11 @@ def handle_name(message):
     full_name = user_data[message.chat.id]
     url = "https://dolg.xyz"
     
-    debt_info = parse_debt_info(url, full_name)
+    parsed_text = get_parsed_text(url, full_name)
     
-    bot.reply_to(message, f"Результат поиска для {full_name}:\n\n{debt_info}")
+    if parsed_text:
+        bot.reply_to(message, parsed_text)
+    else:
+        bot.reply_to(message, "Произошла ошибка при получении данных. Попробуйте снова.")
 
 bot.polling()
