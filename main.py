@@ -20,7 +20,7 @@ bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
 
-# Функция для парсинга текста и создания скриншота
+# Функция для создания скриншота и последующего парсинга текста из кнопок
 def get_parsed_text(url, full_name):
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Открытие браузера в фоновом режиме
@@ -42,6 +42,15 @@ def get_parsed_text(url, full_name):
         
         # Пауза для обновления страницы после ввода текста
         time.sleep(5)  # Увеличенная задержка до 5 секунд для симуляции ожидания загрузки страницы
+
+        # Создание полного скриншота страницы
+        screenshot_path = 'full_page_screenshot.png'
+        
+        # Определяем размер страницы для создания полного скриншота
+        S = lambda X: driver.execute_script('return document.body.parentNode.scroll'+X)
+        driver.set_window_size(S('Width'), S('Height'))  # Задаём размер окна в зависимости от размеров страницы
+        driver.save_screenshot(screenshot_path)
+        logger.info("Полный скриншот сохранен.")
         
         # Поиск элементов кнопок с текстом результата
         buttons = driver.find_elements(By.CSS_SELECTOR, 'button[class="SearchNameResults_name_V2vWD"]')
@@ -52,15 +61,6 @@ def get_parsed_text(url, full_name):
         else:
             logger.info("Результаты не найдены.")
             parsed_text = "Результаты не найдены."
-        
-        # Создание полного скриншота страницы
-        screenshot_path = 'full_page_screenshot.png'
-        
-        # Определяем размер страницы для создания полного скриншота
-        S = lambda X: driver.execute_script('return document.body.parentNode.scroll'+X)
-        driver.set_window_size(S('Width'), S('Height'))  # Задаём размер окна в зависимости от размеров страницы
-        driver.save_screenshot(screenshot_path)
-        logger.info("Полный скриншот сохранен.")
         
         return parsed_text, screenshot_path
 
