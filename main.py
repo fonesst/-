@@ -3,7 +3,9 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-import os
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import logging
 import time
 import random
@@ -19,9 +21,9 @@ bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
 
-def parse_text_from_site(url, full_name):
+def parse_text_from_website(url, full_name):
     chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Открытие браузера в фоновом режиме
+    chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36")
@@ -34,17 +36,24 @@ def parse_text_from_site(url, full_name):
         time.sleep(random.uniform(2, 5))  # Случайная задержка после загрузки страницы
         
         # Ввод ФИО в поле поиска
-        search_input = driver.find_element("css selector", 'input[class="SearchNameInput_input__M6_k8"]')
+        search_input = driver.find_element(By.CSS_SELECTOR, 'input[class="SearchNameInput_input__M6_k8"]')
         search_input.send_keys(full_name)
         logger.info(f"ФИО введено: {full_name}")
         
         # Пауза для обновления страницы после ввода текста
         time.sleep(5)  # Задержка в 5 секунд
         
-        # Поиск текста по заданному селектору
-        parsed_text = driver.find_element("css selector", 'button[class="SearchNameResults_name_V2vW D"]').text
-        logger.info("Текст успешно извлечен")
-        return parsed_text
+        # Парсинг текста из указанного элемента
+        try:
+            element = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'button[class="SearchNameResults_name_V2vW D"]'))
+            )
+            parsed_text = element.text
+            logger.info(f"Текст успешно спарсен: {parsed_text}")
+            return parsed_text
+        except Exception as e:
+            logger.error(f"Ошибка при парсинге текста: {str(e)}")
+            return "Текст не найден"
 
     except Exception as e:
         logger.error(f"Произошла ошибка: {str(e)}")
@@ -63,11 +72,11 @@ def handle_name(message):
     full_name = user_data[message.chat.id]
     url = "https://dolg.xyz"
     
-    parsed_text = parse_text_from_site(url, full_name)
+    parsed_text = parse_text_from_website(url, full_name)
     
     if parsed_text:
         bot.reply_to(message, f"Результат поиска:\n{parsed_text}")
     else:
-        bot.reply_to(message, "Произошла ошибка при парсинге текста. Попробуйте снова.")
+        bot.reply_to(message, "Произошла ошибка при получении данных. Попробуйте снова.")
 
 bot.polling()
