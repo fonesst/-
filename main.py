@@ -3,12 +3,13 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-import os
-import logging
-import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import os
+import logging
+import time
+import random
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +22,7 @@ bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
 
-def get_parsed_text(url, full_name):
+def get_parsed_text_and_screenshot(url, full_name):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
@@ -34,7 +35,7 @@ def get_parsed_text(url, full_name):
         driver.get(url)
         logger.info(f"Загружена страница: {url}")
         
-        # Ввод ФИО в поле поиска без задержки
+        # Ввод ФИО в поле поиска
         search_input = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, 'input[class="SearchNameInput_input__M6_k8"]'))
         )
@@ -81,7 +82,7 @@ def handle_name(message):
     full_name = user_data[message.chat.id]
     url = "https://dolg.xyz"
     
-    parsed_text, screenshot_path = get_parsed_text(url, full_name)
+    parsed_text, screenshot_path = get_parsed_text_and_screenshot(url, full_name)
     
     if parsed_text:
         bot.reply_to(message, parsed_text)
