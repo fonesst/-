@@ -21,7 +21,7 @@ bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
 
-def parse_text_from_website(url, full_name):
+def parse_text_with_name(url, full_name):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
@@ -46,18 +46,18 @@ def parse_text_from_website(url, full_name):
         # Парсинг текста из указанного элемента
         try:
             element = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'button[class="SearchNameResults_name_V2vW D"]'))
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'ul[class="SearchNameResults_content_rDYQT"]'))
             )
             parsed_text = element.text
-            logger.info(f"Текст успешно спарсен: {parsed_text}")
+            logger.info("Текст успешно спарсен")
             return parsed_text
-        except Exception as e:
-            logger.error(f"Ошибка при парсинге текста: {str(e)}")
-            return "Текст не найден"
+        except:
+            logger.error("Элемент не найден или не содержит текста")
+            return "Информация не найдена"
 
     except Exception as e:
         logger.error(f"Произошла ошибка: {str(e)}")
-        return None
+        return "Произошла ошибка при поиске информации"
 
     finally:
         driver.quit()
@@ -72,11 +72,11 @@ def handle_name(message):
     full_name = user_data[message.chat.id]
     url = "https://dolg.xyz"
     
-    parsed_text = parse_text_from_website(url, full_name)
+    parsed_text = parse_text_with_name(url, full_name)
     
     if parsed_text:
-        bot.reply_to(message, f"Результат поиска:\n{parsed_text}")
+        bot.reply_to(message, f"Результаты поиска для {full_name}:\n\n{parsed_text}")
     else:
-        bot.reply_to(message, "Произошла ошибка при получении данных. Попробуйте снова.")
+        bot.reply_to(message, "Произошла ошибка при поиске информации. Попробуйте снова.")
 
 bot.polling()
