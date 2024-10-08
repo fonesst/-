@@ -8,6 +8,7 @@ import logging
 import time
 import random
 from selenium.webdriver.common.by import By
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -54,22 +55,39 @@ def get_parsed_text(url, full_name):
         
         # Поиск всех элементов кнопок с текстом
         buttons = driver.find_elements(By.TAG_NAME, 'button')
+        filtered_buttons = []
         if buttons:
-            # Собираем текст из каждой найденной кнопки
-            parsed_text = "\n".join([button.text for button in buttons if button.text.strip()])
-            logger.info(f"Распарсено {len(buttons)} кнопок.")
+            for button in buttons:
+                button_text = button.text.strip()
+                # Убираем ненужные кнопки
+                if button_text not in ["Пошук за П.І.Б.", "Пошук за телефоном"] and button_text:
+                    filtered_buttons.append(button_text)
+            
+            if filtered_buttons:
+                parsed_text = f"Вот найденные люди:\n" + "\n".join(filtered_buttons)
+                logger.info(f"Распарсено {len(filtered_buttons)} кнопок.")
+            else:
+                logger.info("Нужные кнопки не найдены.")
+                parsed_text = "Нужные кнопки не найдены."
         else:
             logger.info("Кнопки не найдены.")
             parsed_text = "Кнопки не найдены."
         
-        return parsed_text, screenshot_path
+        return parsed_text, filtered_buttons, screenshot_path
 
     except Exception as e:
         logger.error(f"Произошла ошибка: {str(e)}")
-        return None, None
+        return None, None, None
 
     finally:
         driver.quit()
+
+# Функция для создания инлайн-кнопок
+def create_inline_keyboard(button_texts):
+    keyboard = InlineKeyboardMarkup()
+    for text in button_texts:
+        keyboard.add(InlineKeyboardButton(text, callback_data=text))
+    return keyboard
 
 # Обработчик команды /start
 @bot.message_handler(commands=['start'])
@@ -83,11 +101,13 @@ def handle_name(message):
     full_name = user_data[message.chat.id]
     url = "https://dolg.xyz"
     
-    parsed_text, screenshot_path = get_parsed_text(url, full_name)
+    parsed_text, button_texts, screenshot_path = get_parsed_text(url, full_name)
     
-    if parsed_text:
-        bot.reply_to(message, parsed_text)
+    if parsed_text and button_texts:
+        # Отправляем текст с кнопками
+        bot.send_message(message.chat.id, parsed_text, reply_markup=create_inline_keyboard(button_texts))
         
+        # Отправляем скриншот
         if screenshot_path:
             with open(screenshot_path, 'rb') as file:
                 bot.send_photo(message.chat.id, file)
