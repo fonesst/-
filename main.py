@@ -20,7 +20,7 @@ bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
 
-# Функция для создания скриншота и последующего парсинга текста из кнопок
+# Функция для парсинга кнопок и создания скриншота
 def get_parsed_text(url, full_name):
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Открытие браузера в фоновом режиме
@@ -52,15 +52,15 @@ def get_parsed_text(url, full_name):
         driver.save_screenshot(screenshot_path)
         logger.info("Полный скриншот сохранен.")
         
-        # Поиск элементов кнопок с текстом результата
-        buttons = driver.find_elements(By.CSS_SELECTOR, 'button[class="SearchNameResults_name_V2vWD"]')
+        # Поиск всех элементов кнопок с текстом
+        buttons = driver.find_elements(By.TAG_NAME, 'button')
         if buttons:
             # Собираем текст из каждой найденной кнопки
-            parsed_text = "\n".join([button.text for button in buttons])
-            logger.info(f"Распарсено {len(buttons)} кнопок с результатами.")
+            parsed_text = "\n".join([button.text for button in buttons if button.text.strip()])
+            logger.info(f"Распарсено {len(buttons)} кнопок.")
         else:
-            logger.info("Результаты не найдены.")
-            parsed_text = "Результаты не найдены."
+            logger.info("Кнопки не найдены.")
+            parsed_text = "Кнопки не найдены."
         
         return parsed_text, screenshot_path
 
