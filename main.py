@@ -9,13 +9,12 @@ import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Ваш API токен
+# Замените на ваш API токен
 API_TOKEN = '7368730334:AAH9xUG8G_Ro8mvV_fDQxd5ddkwjxHnBoeg'
 
 bot = telebot.TeleBot(API_TOKEN)
@@ -34,28 +33,31 @@ def get_parsed_text(url, full_name):
     try:
         driver.get(url)
         logger.info(f"Загружена страница: {url}")
-
+        
+        # Ожидаем появления поля поиска
+        wait = WebDriverWait(driver, 10)
+        search_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[class="SearchNameInput_input__M6_k8"]')))
+        
         # Ввод ФИО в поле поиска
-        search_input = driver.find_element(By.CSS_SELECTOR, 'input[class="SearchNameInput_input__M6_k8"]')
         search_input.send_keys(full_name)
         logger.info(f"ФИО введено: {full_name}")
         
-        # Ожидание загрузки элементов с результатами
-        try:
-            results = WebDriverWait(driver, 10).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="Card_card_Oh16E SearchNameResults_card_MeQI_"]'))
-            )
-            logger.info(f"Найдено {len(results)} результатов.")
-        except TimeoutException:
-            logger.info("Результаты не загружены вовремя.")
-            return "Результаты не найдены.", None
+        # Ожидание появления результатов
+        wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="Card_card_Oh16E SearchNameResults_card_MeQI_"]')))
         
-        # Парсинг текста результатов
-        parsed_text = "\n".join([result.text for result in results])
-
+        # Поиск элементов, содержащих результат
+        results = driver.find_elements(By.CSS_SELECTOR, 'div[class="Card_card_Oh16E SearchNameResults_card_MeQI_"]')
+        if results:
+            # Собираем текст из каждого найденного элемента
+            parsed_text = "\n".join([result.text for result in results])
+            logger.info(f"Распарсено {len(results)} результатов.")
+        else:
+            logger.info("Результаты не найдены.")
+            parsed_text = "Результаты не найдены."
+        
         # Создание полного скриншота страницы
         screenshot_path = 'full_page_screenshot.png'
-
+        
         # Определяем размер страницы для создания полного скриншота
         S = lambda X: driver.execute_script('return document.body.parentNode.scroll'+X)
         driver.set_window_size(S('Width'), S('Height'))  # Задаём размер окна в зависимости от размеров страницы
