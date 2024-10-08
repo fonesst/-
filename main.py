@@ -43,7 +43,7 @@ def get_parsed_text(url, full_name):
         time.sleep(5)  # Увеличенная задержка до 5 секунд для симуляции ожидания
         
         # Поиск элементов, содержащих результат
-        results = driver.find_elements(By.CSS_SELECTOR, 'ul[class="SearchNameResults_content_rDYQT"] li')
+        results = driver.find_elements(By.CSS_SELECTOR, 'div[class="Card_card_Oh16E SearchNameResults_card_MeQI_"]')
         if results:
             # Собираем текст из каждого найденного элемента
             parsed_text = "\n".join([result.text for result in results])
