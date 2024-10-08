@@ -20,7 +20,7 @@ bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
 
-def get_parsed_text(url, full_name):
+def get_parsed_text_and_screenshot(url, full_name):
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Открытие браузера в фоновом режиме
     chrome_options.add_argument("--no-sandbox")
@@ -42,17 +42,16 @@ def get_parsed_text(url, full_name):
         # Пауза для обновления страницы после ввода текста
         time.sleep(5)  # Увеличенная задержка до 5 секунд для симуляции ожидания
         
-        # Поиск элементов, содержащих результат
+        # Парсинг текста из нужного элемента
         results = driver.find_elements(By.CSS_SELECTOR, 'div[class="Card_card_Oh16E SearchNameResults_card_MeQI_"]')
         if results:
-            # Собираем текст из каждого найденного элемента
             parsed_text = "\n".join([result.text for result in results])
             logger.info(f"Распарсено {len(results)} результатов.")
         else:
-            logger.info("Результаты не найдены.")
             parsed_text = "Результаты не найдены."
+            logger.info("Результаты не найдены.")
         
-        # Создание полного скриншота страницы
+        # После получения текста создаём полный скриншот страницы
         screenshot_path = 'full_page_screenshot.png'
         
         # Определяем размер страницы для создания полного скриншота
@@ -80,14 +79,14 @@ def handle_name(message):
     full_name = user_data[message.chat.id]
     url = "https://dolg.xyz"
     
-    parsed_text, screenshot_path = get_parsed_text(url, full_name)
+    parsed_text, screenshot_path = get_parsed_text_and_screenshot(url, full_name)
     
     if parsed_text:
-        bot.reply_to(message, parsed_text)
+        bot.reply_to(message, parsed_text)  # Отправляем пользователю парсинг
         
         if screenshot_path:
             with open(screenshot_path, 'rb') as file:
-                bot.send_photo(message.chat.id, file)
+                bot.send_photo(message.chat.id, file)  # Отправляем скриншот
             os.remove(screenshot_path)
         else:
             bot.reply_to(message, "Произошла ошибка при создании скриншота.")
