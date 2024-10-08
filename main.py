@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Замените на ваш API токен
-API_TOKEN = 'YOUR_API_TOKEN'
+API_TOKEN = '7368730334:AAH9xUG8G_Ro8mvV_fDQxd5ddkwjxHnBoeg'
 
 bot = telebot.TeleBot(API_TOKEN)
 
