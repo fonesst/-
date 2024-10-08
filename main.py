@@ -48,14 +48,24 @@ def get_parsed_text(url, full_name):
             # Собираем текст из каждого найденного элемента
             parsed_text = "\n".join([result.text for result in results])
             logger.info(f"Распарсено {len(results)} результатов.")
-            return parsed_text
         else:
             logger.info("Результаты не найдены.")
-            return "Результаты не найдены."
+            parsed_text = "Результаты не найдены."
+        
+        # Создание полного скриншота страницы
+        screenshot_path = 'full_page_screenshot.png'
+        
+        # Определяем размер страницы для создания полного скриншота
+        S = lambda X: driver.execute_script('return document.body.parentNode.scroll'+X)
+        driver.set_window_size(S('Width'), S('Height'))  # Задаём размер окна в зависимости от размеров страницы
+        driver.save_screenshot(screenshot_path)
+        logger.info("Полный скриншот сохранен.")
+        
+        return parsed_text, screenshot_path
 
     except Exception as e:
         logger.error(f"Произошла ошибка: {str(e)}")
-        return None
+        return None, None
 
     finally:
         driver.quit()
@@ -70,10 +80,17 @@ def handle_name(message):
     full_name = user_data[message.chat.id]
     url = "https://dolg.xyz"
     
-    parsed_text = get_parsed_text(url, full_name)
+    parsed_text, screenshot_path = get_parsed_text(url, full_name)
     
     if parsed_text:
         bot.reply_to(message, parsed_text)
+        
+        if screenshot_path:
+            with open(screenshot_path, 'rb') as file:
+                bot.send_photo(message.chat.id, file)
+            os.remove(screenshot_path)
+        else:
+            bot.reply_to(message, "Произошла ошибка при создании скриншота.")
     else:
         bot.reply_to(message, "Произошла ошибка при получении данных. Попробуйте снова.")
 
