@@ -38,8 +38,10 @@ def take_screenshot_with_name(url, full_name):
         search_input.send_keys(full_name)
         logger.info(f"ФИО введено: {full_name}")
         
-        # Скриншот страницы после ввода ФИО
-        time.sleep(3)  # Небольшая задержка для обновления страницы после ввода
+        # Пауза для обновления страницы после ввода текста
+        time.sleep(3)  # Задержка в 3 секунды
+        
+        # Скриншот страницы после задержки
         screenshot_path = 'page_screenshot.png'
         driver.save_screenshot(screenshot_path)
         logger.info("Скриншот сохранен")
