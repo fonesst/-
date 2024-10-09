@@ -9,6 +9,7 @@ import time
 import random
 from selenium.webdriver.common.by import By
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from transliterate import translit
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +21,14 @@ API_TOKEN = '7368730334:AAH9xUG8G_Ro8mvV_fDQxd5ddkwjxHnBoeg'
 bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
+
+# Функция для транслитерации ФИО и формирования URL
+def transliterate_name(full_name):
+    # Транслитерация ФИО с использованием библиотеки transliterate
+    transliterated = translit(full_name, 'uk', reversed=True)
+    # Замена пробелов на подчеркивания
+    formatted_name = transliterated.lower().replace(" ", "_")
+    return formatted_name
 
 # Функция для парсинга кнопок и создания скриншота
 def get_parsed_text(url, full_name):
@@ -42,14 +51,14 @@ def get_parsed_text(url, full_name):
         logger.info(f"ФИО введено: {full_name}")
         
         # Пауза для обновления страницы после ввода текста
-        time.sleep(5)  # Увеличенная задержка до 5 секунд для симуляции ожидания загрузки страницы
+        time.sleep(5)
 
         # Создание полного скриншота страницы
         screenshot_path = 'full_page_screenshot.png'
         
         # Определяем размер страницы для создания полного скриншота
         S = lambda X: driver.execute_script('return document.body.parentNode.scroll'+X)
-        driver.set_window_size(S('Width'), S('Height'))  # Задаём размер окна в зависимости от размеров страницы
+        driver.set_window_size(S('Width'), S('Height'))
         driver.save_screenshot(screenshot_path)
         logger.info("Полный скриншот сохранен.")
         
@@ -86,7 +95,9 @@ def get_parsed_text(url, full_name):
 def create_inline_keyboard(button_texts):
     keyboard = InlineKeyboardMarkup()
     for text in button_texts:
-        keyboard.add(InlineKeyboardButton(text, callback_data=text))
+        transliterated_text = transliterate_name(text)
+        url = f"https://dolg.xyz/ukr/{transliterated_text}"
+        keyboard.add(InlineKeyboardButton(text, url=url))
     return keyboard
 
 # Обработчик команды /start
