@@ -21,7 +21,7 @@ bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
 
-# Обновленная функция для транслитерации ФИО и формирования URL
+# Функция для транслитерации ФИО и формирования URL
 def transliterate_name(full_name):
     # Словарь для транслитерации
     translit_dict = {
@@ -34,15 +34,14 @@ def transliterate_name(full_name):
         'Ж': 'Zh', 'З': 'Z', 'И': 'Y', 'І': 'I', 'Ї': 'I', 'Й': 'I', 'К': 'K', 'Л': 'L',
         'М': 'M', 'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U',
         'Ф': 'F', 'Х': 'Kh', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Shch', 'Ь': '',
-        'Ю': 'Iu', 'Я': 'Ia',
-        ''': ''  # Добавляем апостроф в словарь, чтобы он удалялся
+        'Ю': 'Iu', 'Я': 'Ia'
     }
     
     # Транслитерация
     transliterated = ''.join(translit_dict.get(char, char) for char in full_name)
     
-    # Замена пробелов на подчеркивания, удаление апострофов и приведение к нижнему регистру
-    formatted_name = transliterated.lower().replace(" ", "_").replace("'", "")
+    # Замена пробелов на подчеркивания и приведение к нижнему регистру
+    formatted_name = transliterated.lower().replace(" ", "_")
     return formatted_name
 
 # Функция для парсинга кнопок и создания скриншота
@@ -106,13 +105,13 @@ def get_parsed_text(url, full_name):
     finally:
         driver.quit()
 
-# Функция для создания инлайн-кнопок
+# Функция для создания инлайн-кнопок с удалением апострофа из ссылки
 def create_inline_keyboard(button_texts):
     keyboard = InlineKeyboardMarkup()
     for text in button_texts:
-        transliterated_text = transliterate_name(text)
+        transliterated_text = transliterate_name(text).replace("'", "")  # Удаляем апострофы из ссылки
         url = f"https://dolg.xyz/ukr/{transliterated_text}"
-        keyboard.add(InlineKeyboardButton(text, url=url))
+        keyboard.add(InlineKeyboardButton(text, url=url))  # Оставляем апострофы в тексте кнопки
     return keyboard
 
 # Обработчик команды /start
