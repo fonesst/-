@@ -108,35 +108,56 @@ def parse_full_page_text(url):
         driver.get(url)
         logger.info(f"Загружена страница для парсинга: {url}")
         
-        # Ждем, пока body не загрузится
         wait = WebDriverWait(driver, 10)
         wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         
-        # Получаем весь текст со страницы
         page_text = driver.find_element(By.TAG_NAME, "body").text
         
-        # Список нежелательных строк
-        unwanted_strings = [
-            "Отримати повну інформацію",
-            "Видалення даних",
-            "Telegram-перевірка",
-            "ПІБ-пошук",
-            "Пошук за номером",
-            "dolg.xyz 2024",
-            "Реєстр судових рішень",
-            "Логін",
-            "База ухилянтів",
-            "Перевірка по номеру",
-            "Умови користування",
-            "Контакти",
+        # Разбиваем текст на строки и фильтруем нежелательные
+        lines = [line.strip() for line in page_text.split('\n') if line.strip()]
+        filtered_lines = [line for line in lines if line not in [
+            "Отримати повну інформацію", "Видалення даних", "Telegram-перевірка",
+            "ПІБ-пошук", "Пошук за номером", "dolg.xyz 2024",
+            "Реєстр судових рішень", "Логін", "База ухилянтів",
+            "Перевірка по номеру", "Умови користування", "Контакти",
             "Управління аккаунтом"
-        ]
+        ]]
         
-        # Фильтруем текст, удаляя нежелательные строки
-        filtered_text = '\n'.join(line for line in page_text.split('\n') if line.strip() not in unwanted_strings)
+        # Форматируем текст в виде дерева
+        tree = ["Результати пошуку:", "│"]
+        indent = 0
+        for i, line in enumerate(filtered_lines):
+            if "Результати пошуку:" in line:
+                tree.append("├── " + line.split(": ", 1)[1])
+                indent = 1
+            elif "Судовий реєстр:" in line:
+                tree.append("│   └── " + line)
+                indent = 2
+            elif any(category in line for category in ["Адмінправопорушення", "Цивільне"]):
+                tree.append("│       ├── " + line)
+                indent = 3
+            elif line.startswith(("20", "19")):  # Предполагаем, что это дата
+                tree.append("│       │   └── " + line)
+                indent = 4
+            elif "Кількість знайдених документів:" in line:
+                tree.append("│       │       └── " + line)
+                indent = 5
+            elif "Пов'язані" in line:
+                tree.append("│" + "   " * indent + "└── " + line + ":")
+                indent += 1
+            elif line.startswith('"') or line == "заявник":
+                tree.append("│" + "   " * indent + "└── " + line)
+            elif "Про видачу судового наказу" in line:
+                parts = line.split(" в сумі ")
+                tree.append("│" + "   " * indent + "└── " + parts[0])
+                if len(parts) > 1:
+                    tree.append("│" + "   " * (indent + 1) + "└── Стягнення боргу за послуги: " + parts[1])
+            else:
+                tree.append("│" + "   " * indent + "└── " + line)
         
-        logger.info("Текст успешно спарсен и отфильтрован.")
-        return filtered_text
+        formatted_text = "\n".join(tree)
+        logger.info("Текст успешно спарсен и отформатирован.")
+        return formatted_text
     except Exception as e:
         logger.error(f"Ошибка при парсинге текста: {str(e)}")
         return None
