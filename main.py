@@ -23,7 +23,6 @@ bot = telebot.TeleBot(API_TOKEN)
 user_data = {}
 
 def transliterate_name(full_name):
-    # Словарь для транслитерации (оставлен без изменений)
     translit_dict = {
         'а': 'a', 'б': 'b', 'в': 'v', 'г': 'h', 'ґ': 'g', 'д': 'd', 'е': 'e', 'є': 'ie',
         'ж': 'zh', 'з': 'z', 'и': 'y', 'і': 'i', 'ї': 'i', 'й': 'i', 'к': 'k', 'л': 'l',
@@ -116,8 +115,28 @@ def parse_full_page_text(url):
         # Получаем весь текст со страницы
         page_text = driver.find_element(By.TAG_NAME, "body").text
         
-        logger.info("Текст успешно спарсен.")
-        return page_text
+        # Список нежелательных строк
+        unwanted_strings = [
+            "Отримати повну інформацію",
+            "Видалення даних",
+            "Telegram-перевірка",
+            "ПІБ-пошук",
+            "Пошук за номером",
+            "dolg.xyz 2024",
+            "Реєстр судових рішень",
+            "Логін",
+            "База ухилянтів",
+            "Перевірка по номеру",
+            "Умови користування",
+            "Контакти",
+            "Управління аккаунтом"
+        ]
+        
+        # Фильтруем текст, удаляя нежелательные строки
+        filtered_text = '\n'.join(line for line in page_text.split('\n') if line.strip() not in unwanted_strings)
+        
+        logger.info("Текст успешно спарсен и отфильтрован.")
+        return filtered_text
     except Exception as e:
         logger.error(f"Ошибка при парсинге текста: {str(e)}")
         return None
