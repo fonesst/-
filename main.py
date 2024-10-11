@@ -142,31 +142,38 @@ def parse_full_page_text(url):
 def format_output(text):
     lines = text.split('\n')
     formatted_output = "Результати пошуку:\n│\n"
-    indent = "│   "
+    indent = "├── "
     current_indent = ""
+    case_icons = {
+        "Кримінальне": "🔴",
+        "Адміністративне": "🟢",
+        "Адмінправопорушення": "🟡",
+        "Цивільне": "🔵"
+    }
 
     for line in lines:
+        if line.strip() == "":
+            continue
+        
         if "Судовий реєстр:" in line:
-            formatted_output += f"{indent}└── {line}\n"
-            current_indent = indent + "    "
-        elif any(case in line for case in ["Адмінправопорушення", "Цивільне", "Кримінальне", "Адміністративне"]):
-            if "Кримінальне" in line:
-                formatted_output += f"{current_indent}└── 🔴 {line}\n"
-            elif "Адміністративне" in line:
-                formatted_output += f"{current_indent}└── 🟢 {line}\n"
-            elif "Адмінправопорушення" in line:
-                formatted_output += f"{current_indent}└── 🟡 {line}\n"
-            elif "Цивільне" in line:
-                formatted_output += f"{current_indent}└── 🔵 {line}\n"
-            current_indent += "    "
-        elif "Кількість знайдених документів:" in line:
-            formatted_output += f"{current_indent}└── {line}\n"
-            current_indent += "    "
+            formatted_output += f"{indent}{line.strip()}\n"
+            current_indent = "│   "
+        elif any(case in line for case in case_icons.keys()):
+            for case, icon in case_icons.items():
+                if case in line:
+                    formatted_output += f"{current_indent}{icon} {case}\n"
+                    current_indent += "│   "
+                    break
+        elif "/" in line:
+            parts = line.split("/", 1)
+            formatted_output += f"{current_indent}└── {parts[0].strip()}\n"
+            if len(parts) > 1:
+                formatted_output += f"{current_indent}    └── {parts[1].strip()}\n"
         elif "Пов'язані" in line:
-            formatted_output += f"{current_indent}└── {line}\n"
+            formatted_output += f"{current_indent}└── {line.strip()}\n"
             current_indent += "    "
         else:
-            formatted_output += f"{current_indent}└── {line}\n"
+            formatted_output += f"{current_indent}└── {line.strip()}\n"
 
     return formatted_output
 
