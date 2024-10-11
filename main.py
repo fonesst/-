@@ -42,10 +42,59 @@ def transliterate_name(full_name):
     return formatted_name
 
 def get_parsed_text(url, full_name):
-    # ... (оставить без изменений)
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36")
+    
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    
+    try:
+        driver.get(url)
+        logger.info(f"Загружена страница: {url}")
+        time.sleep(random.uniform(2, 5))
+        
+        search_input = driver.find_element(By.CSS_SELECTOR, 'input[class="SearchNameInput_input__M6_k8"]')
+        search_input.send_keys(full_name)
+        logger.info(f"ФИО введено: {full_name}")
+        
+        time.sleep(5)
+
+        buttons = driver.find_elements(By.TAG_NAME, 'button')
+        filtered_buttons = []
+        if buttons:
+            for button in buttons:
+                button_text = button.text.strip()
+                if button_text not in ["Пошук за П.І.Б.", "Пошук за телефоном"] and button_text:
+                    filtered_buttons.append(button_text)
+            
+            if filtered_buttons:
+                parsed_text = f"Вот найденные люди:\n" + "\n".join(filtered_buttons)
+                logger.info(f"Распарсено {len(filtered_buttons)} кнопок.")
+            else:
+                logger.info("Нужные кнопки не найдены.")
+                parsed_text = "Нужные кнопки не найдены."
+        else:
+            logger.info("Кнопки не найдены.")
+            parsed_text = "Кнопки не найдены."
+        
+        return parsed_text, filtered_buttons
+
+    except Exception as e:
+        logger.error(f"Произошла ошибка: {str(e)}")
+        return None, None
+
+    finally:
+        driver.quit()
 
 def create_inline_keyboard(button_texts):
-    # ... (оставить без изменений)
+    keyboard = InlineKeyboardMarkup()
+    for text in button_texts:
+        transliterated_text = transliterate_name(text).replace("'", "")
+        callback_data = f"parse_{transliterated_text}"
+        keyboard.add(InlineKeyboardButton(text, callback_data=callback_data))
+    return keyboard
 
 def parse_full_page_text(url):
     chrome_options = Options()
@@ -75,26 +124,6 @@ def parse_full_page_text(url):
     finally:
         driver.quit()
 
-def clean_parsed_text(text):
-    lines_to_remove = [
-        "Отримати повну інформацію",
-        "Видалення даних",
-        "Telegram-перевірка",
-        "ПІБ-пошук",
-        "Пошук за номером",
-        "dolg.xyz 2024",
-        "Реєстр судових рішень",
-        "Логін",
-        "База ухилянтів",
-        "Перевірка по номеру",
-        "Умови користування",
-        "Контакти",
-        "Управління аккаунтом"
-    ]
-    
-    cleaned_lines = [line for line in text.split('\n') if line.strip() and line.strip() not in lines_to_remove]
-    return '\n'.join(cleaned_lines)
-
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     bot.reply_to(message, "Привет! Введите ваше ФИО для поиска на сайте.")
@@ -122,11 +151,10 @@ def callback_query(call):
     parsed_text = parse_full_page_text(url)
     
     if parsed_text:
-        cleaned_text = clean_parsed_text(parsed_text)
         # Разделяем текст на части, если он слишком длинный
         max_message_length = 4096
-        for i in range(0, len(cleaned_text), max_message_length):
-            part = cleaned_text[i:i+max_message_length]
+        for i in range(0, len(parsed_text), max_message_length):
+            part = parsed_text[i:i+max_message_length]
             bot.send_message(call.message.chat.id, part)
     else:
         bot.send_message(call.message.chat.id, "Произошла ошибка при парсинге информации.")
