@@ -142,53 +142,58 @@ def parse_full_page_text(url):
 def format_output(text):
     lines = text.split('\n')
     formatted_output = "Результати пошуку:\n│\n"
-    indent_stack = ["│   "]
     case_icons = {
         "Кримінальне": "🔴",
         "Адміністративне": "🟢",
         "Адмінправопорушення": "🟡",
         "Цивільне": "🔵"
     }
+    indent = "│   "
+    branch = "├── "
+    end_branch = "└── "
 
-    for line in lines:
+    for i, line in enumerate(lines):
         line = line.strip()
         if not line:
             continue
 
-        current_indent = "".join(indent_stack)
-
+        # Обработка основного заголовка
         if "Результати пошуку:" in line:
-            formatted_output += f"{current_indent}{line.split(':')[1].strip()}\n"
-        elif "Судовий реєстр:" in line:
-            formatted_output += f"{current_indent}└── {line}\n"
-            indent_stack.append("│   ")
-        elif any(case in line for case in case_icons.keys()):
-            for case, icon in case_icons.items():
-                if case in line:
-                    formatted_output += f"{current_indent}├── {icon} {case}\n"
-                    indent_stack.append("│   ")
-                    break
-        elif "/" in line:
+            formatted_output += f"├── {line.split(':')[1].strip()}\n"
+            continue
+
+        # Добавление иконок для категорий дел
+        for case, icon in case_icons.items():
+            if case in line:
+                formatted_output += f"{indent}{branch}{icon} {case}\n"
+                continue
+
+        # Обработка дат
+        if "/" in line:
             date = line.split("/")
             if len(date) == 2:  # Если года нет, добавляем 2020
-                formatted_output += f"{current_indent}└── {date[0].strip()}/{date[1].strip()}/2020\n"
+                formatted_output += f"{indent}{end_branch}{date[0].strip()}/{date[1].strip()}/2020\n"
             elif len(date) == 3:
-                formatted_output += f"{current_indent}└── {date[0].strip()}/{date[1].strip()}/{date[2].strip()}\n"
+                formatted_output += f"{indent}{end_branch}{date[0].strip()}/{date[1].strip()}/{date[2].strip()}\n"
+            continue
+
+        # Ключевые элементы, такие как суд и связанные документы
+        if "Судовий реєстр:" in line:
+            formatted_output += f"{indent}{end_branch}{line}\n"
         elif "Кількість знайдених документів:" in line:
-            formatted_output += f"{current_indent}└── {line}\n"
-        elif "Пов'язані" in line:
-            formatted_output += f"{current_indent}└── {line}:\n"
-            indent_stack.append("│   ")
+            formatted_output += f"{indent}{end_branch}{line}\n"
+        elif "Пов'язані державні органи" in line:
+            formatted_output += f"{indent}{end_branch}{line}:\n"
         elif line.startswith("МІЛЯВІЧЮС"):
-            formatted_output += f"{current_indent}├── {line}\n"
+            formatted_output += f"{indent}{branch}{line}\n"
         elif line in ["заявник", "Ч.1 ст.173-2 купап"]:
-            formatted_output += f"{current_indent}└── {line}\n"
+            formatted_output += f"{indent}{end_branch}{line}\n"
         elif "Про видачу судового наказу" in line:
-            formatted_output += f"{current_indent}└── {line}\n"
+            formatted_output += f"{indent}{end_branch}{line}\n"
         elif "стягнення" in line:
-            formatted_output += f"{current_indent}    └── {line.strip()}\n"
+            formatted_output += f"{indent}{indent}{end_branch}{line.strip()}\n"
         else:
-            formatted_output += f"{current_indent}└── {line}\n"
+            formatted_output += f"{indent}{end_branch}{line}\n"
 
     return formatted_output
 
