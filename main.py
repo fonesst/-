@@ -142,7 +142,7 @@ def parse_full_page_text(url):
 def format_output(text):
     lines = text.split('\n')
     formatted_output = "Результати пошуку:\n│\n"
-    indent_stack = ["├── "]
+    indent_stack = ["│   "]
     case_icons = {
         "Кримінальне": "🔴",
         "Адміністративне": "🟢",
@@ -159,37 +159,32 @@ def format_output(text):
 
         if "Результати пошуку:" in line:
             formatted_output += f"{current_indent}{line.split(':')[1].strip()}\n"
-            indent_stack.append("│   ")
         elif "Судовий реєстр:" in line:
             formatted_output += f"{current_indent}└── {line}\n"
-            indent_stack[-1] = "    "
-            indent_stack.append("    ")
+            indent_stack[-1] = "│   "
         elif any(case in line for case in case_icons.keys()):
             for case, icon in case_icons.items():
                 if case in line:
                     formatted_output += f"{current_indent}├── {icon} {case}\n"
-                    indent_stack.append("│   ")
                     break
         elif "/" in line:
             date = line.split("/")
-            formatted_output += f"{current_indent}└── {date[0].strip()}/{date[1].strip()}\n"
-            indent_stack.append("    ")
-        elif line.startswith("МІЛЯВІЧЮС"):
-            formatted_output += f"{current_indent}├── {line}\n"
-            indent_stack.append("│   ")
+            if len(date) == 2:  # If year is missing, assume it as '2020'
+                formatted_output += f"{current_indent}└── {date[0].strip()}/{date[1].strip()}/2020\n"
+            elif len(date) == 3:
+                formatted_output += f"{current_indent}└── {date[0].strip()}/{date[1].strip()}/{date[2].strip()}\n"
         elif "Кількість знайдених документів:" in line:
             formatted_output += f"{current_indent}└── {line}\n"
-            indent_stack.append("    ")
         elif "Пов'язані" in line:
             formatted_output += f"{current_indent}└── {line}:\n"
-            indent_stack.append("    ")
+        elif line.startswith("МІЛЯВІЧЮС"):
+            formatted_output += f"{current_indent}├── {line}\n"
         elif line in ["заявник", "Ч.1 ст.173-2 купап"]:
             formatted_output += f"{current_indent}└── {line}\n"
         elif "Про видачу судового наказу" in line:
-            parts = line.split("про", 1)
-            formatted_output += f"{current_indent}└── {parts[0].strip()}про\n"
-            if len(parts) > 1:
-                formatted_output += f"{current_indent}    └── {parts[1].strip()}\n"
+            formatted_output += f"{current_indent}└── {line}\n"
+        elif "стягнення" in line:
+            formatted_output += f"{current_indent}    └── {line.strip()}\n"
         else:
             formatted_output += f"{current_indent}└── {line}\n"
 
