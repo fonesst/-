@@ -3,12 +3,13 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-import os
 import logging
 import time
 import random
 from selenium.webdriver.common.by import By
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -91,11 +92,11 @@ def create_inline_keyboard(button_texts):
     keyboard = InlineKeyboardMarkup()
     for text in button_texts:
         transliterated_text = transliterate_name(text).replace("'", "")
-        callback_data = f"screenshot_{transliterated_text}"
+        callback_data = f"parse_{transliterated_text}"
         keyboard.add(InlineKeyboardButton(text, callback_data=callback_data))
     return keyboard
 
-def take_screenshot(url):
+def parse_text_from_url(url):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
@@ -106,18 +107,20 @@ def take_screenshot(url):
     
     try:
         driver.get(url)
-        logger.info(f"Загружена страница для скриншота: {url}")
-        time.sleep(5)  # Ждем загрузку страницы
-
-        screenshot_path = 'screenshot.png'
-        S = lambda X: driver.execute_script('return document.body.parentNode.scroll'+X)
-        driver.set_window_size(S('Width'), S('Height'))
-        driver.save_screenshot(screenshot_path)
-        logger.info("Скриншот сохранен.")
+        logger.info(f"Загружена страница для парсинга: {url}")
         
-        return screenshot_path
+        # Ждем, пока элемент не появится на странице
+        wait = WebDriverWait(driver, 10)
+        elements = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "section[class='Layout_content_rxJmq'] > ul > li")))
+        
+        parsed_text = []
+        for element in elements:
+            parsed_text.append(element.text.strip())
+        
+        logger.info("Текст успешно спарсен.")
+        return "\n\n".join(parsed_text)
     except Exception as e:
-        logger.error(f"Ошибка при создании скриншота: {str(e)}")
+        logger.error(f"Ошибка при парсинге текста: {str(e)}")
         return None
     finally:
         driver.quit()
@@ -139,20 +142,18 @@ def handle_name(message):
     else:
         bot.reply_to(message, "Произошла ошибка при получении данных. Попробуйте снова.")
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('screenshot_'))
+@bot.callback_query_handler(func=lambda call: call.data.startswith('parse_'))
 def callback_query(call):
     transliterated_name = call.data.split('_', 1)[1]
     url = f"https://dolg.xyz/ukr/{transliterated_name}"
     
-    bot.answer_callback_query(call.id, "Создаем скриншот...")
+    bot.answer_callback_query(call.id, "Парсим информацию...")
     
-    screenshot_path = take_screenshot(url)
+    parsed_text = parse_text_from_url(url)
     
-    if screenshot_path:
-        with open(screenshot_path, 'rb') as file:
-            bot.send_photo(call.message.chat.id, file)
-        os.remove(screenshot_path)
+    if parsed_text:
+        bot.send_message(call.message.chat.id, parsed_text)
     else:
-        bot.send_message(call.message.chat.id, "Произошла ошибка при создании скриншота.")
+        bot.send_message(call.message.chat.id, "Произошла ошибка при парсинге информации.")
 
 bot.polling()
