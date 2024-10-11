@@ -69,9 +69,7 @@ def get_parsed_text(url, full_name):
                     filtered_buttons.append(button_text)
             
             if filtered_buttons:
-                parsed_text = f"Результати пошуку:\n│\n"
-                for button in filtered_buttons:
-                    parsed_text += f"├── {button}\n"
+                parsed_text = f"Вот найденные люди:\n" + "\n".join(filtered_buttons)
                 logger.info(f"Распарсено {len(filtered_buttons)} кнопок.")
             else:
                 logger.info("Нужные кнопки не найдены.")
@@ -131,32 +129,46 @@ def parse_full_page_text(url):
             "Управління аккаунтом"
         ]
         
-        filtered_lines = [line.strip() for line in page_text.split('\n') if line.strip() and line.strip() not in unwanted_strings]
+        filtered_text = '\n'.join(line for line in page_text.split('\n') if line.strip() not in unwanted_strings)
         
-        tree_structure = "Результати пошуку:\n│\n"
-        indent = "│   "
-        current_indent = ""
-        
-        for line in filtered_lines:
-            if "Судовий реєстр:" in line:
-                tree_structure += f"├── {line}\n"
-                current_indent = indent
-            elif any(keyword in line for keyword in ["Адмінправопорушення", "Цивільне"]):
-                tree_structure += f"{current_indent}├── {line}\n"
-                current_indent += indent
-            elif line[0].isdigit():  # Предполагаем, что это дата
-                tree_structure += f"{current_indent}└── {line}\n"
-                current_indent += indent
-            else:
-                tree_structure += f"{current_indent}└── {line}\n"
-        
-        logger.info("Текст успешно спарсен и отформатирован.")
-        return tree_structure
+        logger.info("Текст успешно спарсен и отфильтрован.")
+        return filtered_text
     except Exception as e:
         logger.error(f"Ошибка при парсинге текста: {str(e)}")
         return None
     finally:
         driver.quit()
+
+def format_output(text):
+    lines = text.split('\n')
+    formatted_output = "Результати пошуку:\n│\n"
+    indent = "│   "
+    current_indent = ""
+
+    for line in lines:
+        if "Судовий реєстр:" in line:
+            formatted_output += f"{indent}└── {line}\n"
+            current_indent = indent + "    "
+        elif any(case in line for case in ["Адмінправопорушення", "Цивільне", "Кримінальне", "Адміністративне"]):
+            if "Кримінальне" in line:
+                formatted_output += f"{current_indent}└── 🔴 {line}\n"
+            elif "Адміністративне" in line:
+                formatted_output += f"{current_indent}└── 🟢 {line}\n"
+            elif "Адмінправопорушення" in line:
+                formatted_output += f"{current_indent}└── 🟡 {line}\n"
+            elif "Цивільне" in line:
+                formatted_output += f"{current_indent}└── 🔵 {line}\n"
+            current_indent += "    "
+        elif "Кількість знайдених документів:" in line:
+            formatted_output += f"{current_indent}└── {line}\n"
+            current_indent += "    "
+        elif "Пов'язані" in line:
+            formatted_output += f"{current_indent}└── {line}\n"
+            current_indent += "    "
+        else:
+            formatted_output += f"{current_indent}└── {line}\n"
+
+    return formatted_output
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -185,9 +197,10 @@ def callback_query(call):
     parsed_text = parse_full_page_text(url)
     
     if parsed_text:
+        formatted_text = format_output(parsed_text)
         max_message_length = 4096
-        for i in range(0, len(parsed_text), max_message_length):
-            part = parsed_text[i:i+max_message_length]
+        for i in range(0, len(formatted_text), max_message_length):
+            part = formatted_text[i:i+max_message_length]
             bot.send_message(call.message.chat.id, part)
     else:
         bot.send_message(call.message.chat.id, "Произошла ошибка при парсинге информации.")
