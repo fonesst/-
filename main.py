@@ -10,7 +10,6 @@ from selenium.webdriver.common.by import By
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import re
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -70,7 +69,9 @@ def get_parsed_text(url, full_name):
                     filtered_buttons.append(button_text)
             
             if filtered_buttons:
-                parsed_text = f"Результати пошуку:\n" + "\n".join(filtered_buttons)
+                parsed_text = f"Результати пошуку:\n│\n"
+                for button in filtered_buttons:
+                    parsed_text += f"├── {button}\n"
                 logger.info(f"Распарсено {len(filtered_buttons)} кнопок.")
             else:
                 logger.info("Нужные кнопки не найдены.")
@@ -130,33 +131,32 @@ def parse_full_page_text(url):
             "Управління аккаунтом"
         ]
         
-        filtered_text = '\n'.join(line for line in page_text.split('\n') if line.strip() not in unwanted_strings)
+        filtered_lines = [line.strip() for line in page_text.split('\n') if line.strip() and line.strip() not in unwanted_strings]
         
-        logger.info("Текст успешно спарсен и отфильтрован.")
-        return filtered_text
+        tree_structure = "Результати пошуку:\n│\n"
+        indent = "│   "
+        current_indent = ""
+        
+        for line in filtered_lines:
+            if "Судовий реєстр:" in line:
+                tree_structure += f"├── {line}\n"
+                current_indent = indent
+            elif any(keyword in line for keyword in ["Адмінправопорушення", "Цивільне"]):
+                tree_structure += f"{current_indent}├── {line}\n"
+                current_indent += indent
+            elif line[0].isdigit():  # Предполагаем, что это дата
+                tree_structure += f"{current_indent}└── {line}\n"
+                current_indent += indent
+            else:
+                tree_structure += f"{current_indent}└── {line}\n"
+        
+        logger.info("Текст успешно спарсен и отформатирован.")
+        return tree_structure
     except Exception as e:
         logger.error(f"Ошибка при парсинге текста: {str(e)}")
         return None
     finally:
         driver.quit()
-
-def format_text_as_tree(text):
-    lines = text.split('\n')
-    formatted_lines = ["Результати пошуку:"]
-    indent = "│   "
-    current_indent = ""
-
-    for line in lines[1:]:  # Skip the first line as we've already added it
-        if ":" in line:
-            parts = line.split(":", 1)
-            formatted_lines.append(f"{current_indent}├── {parts[0].strip()}")
-            if len(parts) > 1 and parts[1].strip():
-                formatted_lines.append(f"{current_indent}│   └── {parts[1].strip()}")
-            current_indent += indent
-        elif line.strip():
-            formatted_lines.append(f"{current_indent}└── {line.strip()}")
-
-    return "\n".join(formatted_lines)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -185,10 +185,9 @@ def callback_query(call):
     parsed_text = parse_full_page_text(url)
     
     if parsed_text:
-        formatted_text = format_text_as_tree(parsed_text)
         max_message_length = 4096
-        for i in range(0, len(formatted_text), max_message_length):
-            part = formatted_text[i:i+max_message_length]
+        for i in range(0, len(parsed_text), max_message_length):
+            part = parsed_text[i:i+max_message_length]
             bot.send_message(call.message.chat.id, part)
     else:
         bot.send_message(call.message.chat.id, "Произошла ошибка при парсинге информации.")
