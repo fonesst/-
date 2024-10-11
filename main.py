@@ -10,6 +10,7 @@ from selenium.webdriver.common.by import By
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import re
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -69,7 +70,7 @@ def get_parsed_text(url, full_name):
                     filtered_buttons.append(button_text)
             
             if filtered_buttons:
-                parsed_text = f"Вот найденные люди:\n" + "\n".join(filtered_buttons)
+                parsed_text = f"Результати пошуку:\n" + "\n".join(filtered_buttons)
                 logger.info(f"Распарсено {len(filtered_buttons)} кнопок.")
             else:
                 logger.info("Нужные кнопки не найдены.")
@@ -113,61 +114,49 @@ def parse_full_page_text(url):
         
         page_text = driver.find_element(By.TAG_NAME, "body").text
         
-        # Разбиваем текст на строки и фильтруем нежелательные
-        lines = [line.strip() for line in page_text.split('\n') if line.strip()]
-        filtered_lines = [line for line in lines if line not in [
-            "Отримати повну інформацію", "Видалення даних", "Telegram-перевірка",
-            "ПІБ-пошук", "Пошук за номером", "dolg.xyz 2024",
-            "Реєстр судових рішень", "Логін", "База ухилянтів",
-            "Перевірка по номеру", "Умови користування", "Контакти",
+        unwanted_strings = [
+            "Отримати повну інформацію",
+            "Видалення даних",
+            "Telegram-перевірка",
+            "ПІБ-пошук",
+            "Пошук за номером",
+            "dolg.xyz 2024",
+            "Реєстр судових рішень",
+            "Логін",
+            "База ухилянтів",
+            "Перевірка по номеру",
+            "Умови користування",
+            "Контакти",
             "Управління аккаунтом"
-        ]]
+        ]
         
-        # Форматируем текст в виде дерева
-        tree = ["Результати пошуку:", "│"]
-        indent = 0
-        for i, line in enumerate(filtered_lines):
-            if "Результати пошуку:" in line:
-                tree.append("├── " + line.split(": ", 1)[1])
-                indent = 1
-            elif "Судовий реєстр:" in line:
-                tree.append("│   └── " + line)
-                indent = 2
-            elif any(category in line for category in ["Адмінправопорушення", "Цивільне"]):
-                tree.append("│       ├── " + line if "Адмінправопорушення" in line else "│       └── " + line)
-                indent = 3
-            elif line.startswith(("20", "19")):  # Предполагаем, что это дата
-                tree.append("│       │   └── " + line)
-                indent = 4
-            elif "МІЛЯВІЧЮС ІННА ІГОРІВНА" in line and "Кількість знайдених документів:" in line:
-                parts = line.split(" / ")
-                tree.append("│       │       ├── " + parts[0])
-                tree.append("│       │       └── " + parts[1])
-                indent = 5
-            elif "Пов'язані" in line:
-                tree.append("│" + "   " * indent + "└── " + line + ":")
-                indent += 1
-            elif line.startswith('"') or line == "заявник":
-                tree.append("│" + "   " * indent + "└── " + line)
-                if line == "заявник":
-                    indent -= 1
-            elif "Про видачу судового наказу" in line:
-                tree.append("│" + "   " * indent + "└── Про видачу судового наказу")
-                indent += 1
-                tree.append("│" + "   " * indent + "└── Стягнення боргу за послуги: " + line.split("в сумі ")[-1])
-            elif "Ч.1 ст.173-2 купап" in line:
-                tree.append("│" + "   " * indent + "└── " + line)
-            else:
-                tree.append("│" + "   " * indent + "└── " + line)
+        filtered_text = '\n'.join(line for line in page_text.split('\n') if line.strip() not in unwanted_strings)
         
-        formatted_text = "\n".join(tree)
-        logger.info("Текст успешно спарсен и отформатирован.")
-        return formatted_text
+        logger.info("Текст успешно спарсен и отфильтрован.")
+        return filtered_text
     except Exception as e:
         logger.error(f"Ошибка при парсинге текста: {str(e)}")
         return None
     finally:
         driver.quit()
+
+def format_text_as_tree(text):
+    lines = text.split('\n')
+    formatted_lines = ["Результати пошуку:"]
+    indent = "│   "
+    current_indent = ""
+
+    for line in lines[1:]:  # Skip the first line as we've already added it
+        if ":" in line:
+            parts = line.split(":", 1)
+            formatted_lines.append(f"{current_indent}├── {parts[0].strip()}")
+            if len(parts) > 1 and parts[1].strip():
+                formatted_lines.append(f"{current_indent}│   └── {parts[1].strip()}")
+            current_indent += indent
+        elif line.strip():
+            formatted_lines.append(f"{current_indent}└── {line.strip()}")
+
+    return "\n".join(formatted_lines)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -196,10 +185,10 @@ def callback_query(call):
     parsed_text = parse_full_page_text(url)
     
     if parsed_text:
-        # Разделяем текст на части, если он слишком длинный
+        formatted_text = format_text_as_tree(parsed_text)
         max_message_length = 4096
-        for i in range(0, len(parsed_text), max_message_length):
-            part = parsed_text[i:i+max_message_length]
+        for i in range(0, len(formatted_text), max_message_length):
+            part = formatted_text[i:i+max_message_length]
             bot.send_message(call.message.chat.id, part)
     else:
         bot.send_message(call.message.chat.id, "Произошла ошибка при парсинге информации.")
