@@ -134,24 +134,29 @@ def parse_full_page_text(url):
                 tree.append("│   └── " + line)
                 indent = 2
             elif any(category in line for category in ["Адмінправопорушення", "Цивільне"]):
-                tree.append("│       ├── " + line)
+                tree.append("│       ├── " + line if "Адмінправопорушення" in line else "│       └── " + line)
                 indent = 3
             elif line.startswith(("20", "19")):  # Предполагаем, что это дата
                 tree.append("│       │   └── " + line)
                 indent = 4
-            elif "Кількість знайдених документів:" in line:
-                tree.append("│       │       └── " + line)
+            elif "МІЛЯВІЧЮС ІННА ІГОРІВНА" in line and "Кількість знайдених документів:" in line:
+                parts = line.split(" / ")
+                tree.append("│       │       ├── " + parts[0])
+                tree.append("│       │       └── " + parts[1])
                 indent = 5
             elif "Пов'язані" in line:
                 tree.append("│" + "   " * indent + "└── " + line + ":")
                 indent += 1
             elif line.startswith('"') or line == "заявник":
                 tree.append("│" + "   " * indent + "└── " + line)
+                if line == "заявник":
+                    indent -= 1
             elif "Про видачу судового наказу" in line:
-                parts = line.split(" в сумі ")
-                tree.append("│" + "   " * indent + "└── " + parts[0])
-                if len(parts) > 1:
-                    tree.append("│" + "   " * (indent + 1) + "└── Стягнення боргу за послуги: " + parts[1])
+                tree.append("│" + "   " * indent + "└── Про видачу судового наказу")
+                indent += 1
+                tree.append("│" + "   " * indent + "└── Стягнення боргу за послуги: " + line.split("в сумі ")[-1])
+            elif "Ч.1 ст.173-2 купап" in line:
+                tree.append("│" + "   " * indent + "└── " + line)
             else:
                 tree.append("│" + "   " * indent + "└── " + line)
         
