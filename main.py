@@ -139,6 +139,56 @@ def parse_full_page_text(url):
     finally:
         driver.quit()
 
+def format_output(text):
+    lines = text.split('\n')
+    formatted_output = "Результати пошуку:\n\n"
+    case_icons = {
+        "Кримінальне": "🔴",
+        "Адміністративне": "🟢",
+        "Адмінправопорушення": "🟡",
+        "Цивільне": "🔵"
+    }
+
+    last_case = ""
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        # Имя фигуранта
+        if line.startswith("МІЛЯВІЧЮС"):
+            formatted_output += f"- {line}\n"
+            continue
+
+        # Категории дел с иконками
+        if any(case in line for case in case_icons.keys()):
+            if line == last_case:
+                continue
+            icon = case_icons[line.strip()]
+            formatted_output += f"  {icon} {line}\n"
+            last_case = line.strip()
+            continue
+
+        # Обработка дат
+        if "/" in line:
+            formatted_output += f"  Дата: {line}\n"
+            continue
+
+        # Ключевые данные: количество документов, суды
+        if "Кількість знайдених документів" in line:
+            formatted_output += f"  {line}\n"
+            continue
+
+        if "Пов'язані державні органи" in line:
+            formatted_output += f"  {line}\n"
+            continue
+
+        # Прочая информация
+        formatted_output += f"  {line}\n"
+
+    return formatted_output
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     bot.reply_to(message, "Привет! Введите ваше ФИО для поиска на сайте.")
