@@ -161,15 +161,16 @@ def format_output(text):
             formatted_output += f"{current_indent}{line.split(':')[1].strip()}\n"
         elif "Судовий реєстр:" in line:
             formatted_output += f"{current_indent}└── {line}\n"
-            indent_stack[-1] = "│   "
+            indent_stack.append("│   ")
         elif any(case in line for case in case_icons.keys()):
             for case, icon in case_icons.items():
                 if case in line:
                     formatted_output += f"{current_indent}├── {icon} {case}\n"
+                    indent_stack.append("│   ")
                     break
         elif "/" in line:
             date = line.split("/")
-            if len(date) == 2:  # If year is missing, assume it as '2020'
+            if len(date) == 2:  # Если года нет, добавляем 2020
                 formatted_output += f"{current_indent}└── {date[0].strip()}/{date[1].strip()}/2020\n"
             elif len(date) == 3:
                 formatted_output += f"{current_indent}└── {date[0].strip()}/{date[1].strip()}/{date[2].strip()}\n"
@@ -177,6 +178,7 @@ def format_output(text):
             formatted_output += f"{current_indent}└── {line}\n"
         elif "Пов'язані" in line:
             formatted_output += f"{current_indent}└── {line}:\n"
+            indent_stack.append("│   ")
         elif line.startswith("МІЛЯВІЧЮС"):
             formatted_output += f"{current_indent}├── {line}\n"
         elif line in ["заявник", "Ч.1 ст.173-2 купап"]:
