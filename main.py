@@ -139,67 +139,8 @@ def parse_full_page_text(url):
     finally:
         driver.quit()
 
-def format_output(text):
-    lines = text.split('\n')
-    formatted_output = "Результати пошуку:\n│\n"
-    case_icons = {
-        "Кримінальне": "🔴",
-        "Адміністративне": "🟢",
-        "Адмінправопорушення": "🟡",
-        "Цивільне": "🔵"
-    }
 
-    indent = "│   "
-    branch = "├── "
-    end_branch = "└── "
 
-    # Управляем флагами вложенности
-    current_indent = indent
-    last_case = ""
-
-    for i, line in enumerate(lines):
-        line = line.strip()
-        if not line:
-            continue
-
-        # Основной заголовок
-        if "Результати пошуку:" in line:
-            continue
-
-        # Если это имя, то новый поиск
-        if line.startswith("МІЛЯВІЧЮС"):
-            formatted_output += f"{branch}{line}\n"
-            current_indent = indent
-            continue
-
-        # Обработка категорий дел с иконками
-        if any(case in line for case in case_icons.keys()):
-            if line == last_case:
-                continue
-            icon = case_icons[line.strip()]
-            formatted_output += f"{current_indent}{branch}{icon} {line}\n"
-            current_indent += indent
-            last_case = line.strip()
-            continue
-
-        # Обработка дат и информации о количестве документов
-        if "/" in line:
-            date = line.split("/")
-            if len(date) == 2:  # Если года нет, добавляем 2020
-                formatted_output += f"{current_indent}{end_branch}{date[0].strip()}/{date[1].strip()}/2020\n"
-            else:
-                formatted_output += f"{current_indent}{end_branch}{line}\n"
-            continue
-
-        # Информация о судах, связанных органах и документах
-        if "Кількість знайдених документів" in line or "Пов'язані державні органи" in line or "Про видачу судового наказу" in line:
-            formatted_output += f"{current_indent}{end_branch}{line}\n"
-            continue
-
-        # Прочие данные (должны быть на самом конце веток)
-        formatted_output += f"{current_indent}{end_branch}{line}\n"
-
-    return formatted_output
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
