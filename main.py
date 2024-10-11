@@ -142,8 +142,7 @@ def parse_full_page_text(url):
 def format_output(text):
     lines = text.split('\n')
     formatted_output = "Результати пошуку:\n│\n"
-    current_indent = "├── "
-    sub_indent = "│   "
+    indent_stack = ["├── "]
     case_icons = {
         "Кримінальне": "🔴",
         "Адміністративне": "🟢",
@@ -152,26 +151,47 @@ def format_output(text):
     }
 
     for line in lines:
-        if line.strip() == "":
+        line = line.strip()
+        if not line:
             continue
-        
-        if "Судовий реєстр:" in line:
-            formatted_output += f"{current_indent}Судовий реєстр: {line.split(':')[-1].strip()}\n"
-            current_indent = "│   ├── "
-            sub_indent = "│   │   "
+
+        current_indent = "".join(indent_stack)
+
+        if "Результати пошуку:" in line:
+            formatted_output += f"{current_indent}{line.split(':')[1].strip()}\n"
+            indent_stack.append("│   ")
+        elif "Судовий реєстр:" in line:
+            formatted_output += f"{current_indent}└── {line}\n"
+            indent_stack[-1] = "    "
+            indent_stack.append("    ")
         elif any(case in line for case in case_icons.keys()):
             for case, icon in case_icons.items():
                 if case in line:
-                    formatted_output += f"{current_indent}{icon} {case}\n"
-                    current_indent = sub_indent + "└── "
+                    formatted_output += f"{current_indent}├── {icon} {case}\n"
+                    indent_stack.append("│   ")
                     break
         elif "/" in line:
-            formatted_output += f"{current_indent}{line.strip()}\n"
+            date = line.split("/")
+            formatted_output += f"{current_indent}└── {date[0].strip()}/{date[1].strip()}\n"
+            indent_stack.append("    ")
+        elif line.startswith("МІЛЯВІЧЮС"):
+            formatted_output += f"{current_indent}├── {line}\n"
+            indent_stack.append("│   ")
+        elif "Кількість знайдених документів:" in line:
+            formatted_output += f"{current_indent}└── {line}\n"
+            indent_stack.append("    ")
         elif "Пов'язані" in line:
-            formatted_output += f"{current_indent}{line.strip()}:\n"
-            current_indent = sub_indent + "│   └── "
+            formatted_output += f"{current_indent}└── {line}:\n"
+            indent_stack.append("    ")
+        elif line in ["заявник", "Ч.1 ст.173-2 купап"]:
+            formatted_output += f"{current_indent}└── {line}\n"
+        elif "Про видачу судового наказу" in line:
+            parts = line.split("про", 1)
+            formatted_output += f"{current_indent}└── {parts[0].strip()}про\n"
+            if len(parts) > 1:
+                formatted_output += f"{current_indent}    └── {parts[1].strip()}\n"
         else:
-            formatted_output += f"{sub_indent}{line.strip()}\n"
+            formatted_output += f"{current_indent}└── {line}\n"
 
     return formatted_output
 
