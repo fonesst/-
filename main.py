@@ -22,23 +22,6 @@ bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
 
-# Список слов для удаления
-words_to_remove = [
-    "Отримати повну інформацію",
-    "Видалення даних",
-    "Telegram-перевірка",
-    "ПІБ-пошук",
-    "Пошук за номером",
-    "dolg.xyz 2024",
-    "Реєстр судових рішень",
-    "Логін",
-    "База ухилянтів",
-    "Перевірка по номеру",
-    "Умови користування",
-    "Контакти",
-    "Управління аккаунтом"
-]
-
 def transliterate_name(full_name):
     # Словарь для транслитерации (оставлен без изменений)
     translit_dict = {
@@ -59,10 +42,10 @@ def transliterate_name(full_name):
     return formatted_name
 
 def get_parsed_text(url, full_name):
-    # ... (оставляем без изменений)
+    # ... (оставить без изменений)
 
 def create_inline_keyboard(button_texts):
-    # ... (оставляем без изменений)
+    # ... (оставить без изменений)
 
 def parse_full_page_text(url):
     chrome_options = Options()
@@ -84,17 +67,33 @@ def parse_full_page_text(url):
         # Получаем весь текст со страницы
         page_text = driver.find_element(By.TAG_NAME, "body").text
         
-        # Фильтруем текст
-        filtered_lines = [line for line in page_text.split('\n') if line.strip() and not any(word in line for word in words_to_remove)]
-        filtered_text = '\n'.join(filtered_lines)
-        
-        logger.info("Текст успешно спарсен и отфильтрован.")
-        return filtered_text
+        logger.info("Текст успешно спарсен.")
+        return page_text
     except Exception as e:
         logger.error(f"Ошибка при парсинге текста: {str(e)}")
         return None
     finally:
         driver.quit()
+
+def clean_parsed_text(text):
+    lines_to_remove = [
+        "Отримати повну інформацію",
+        "Видалення даних",
+        "Telegram-перевірка",
+        "ПІБ-пошук",
+        "Пошук за номером",
+        "dolg.xyz 2024",
+        "Реєстр судових рішень",
+        "Логін",
+        "База ухилянтів",
+        "Перевірка по номеру",
+        "Умови користування",
+        "Контакти",
+        "Управління аккаунтом"
+    ]
+    
+    cleaned_lines = [line for line in text.split('\n') if line.strip() and line.strip() not in lines_to_remove]
+    return '\n'.join(cleaned_lines)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -123,10 +122,11 @@ def callback_query(call):
     parsed_text = parse_full_page_text(url)
     
     if parsed_text:
+        cleaned_text = clean_parsed_text(parsed_text)
         # Разделяем текст на части, если он слишком длинный
         max_message_length = 4096
-        for i in range(0, len(parsed_text), max_message_length):
-            part = parsed_text[i:i+max_message_length]
+        for i in range(0, len(cleaned_text), max_message_length):
+            part = cleaned_text[i:i+max_message_length]
             bot.send_message(call.message.chat.id, part)
     else:
         bot.send_message(call.message.chat.id, "Произошла ошибка при парсинге информации.")
