@@ -96,7 +96,7 @@ def create_inline_keyboard(button_texts):
         keyboard.add(InlineKeyboardButton(text, callback_data=callback_data))
     return keyboard
 
-def parse_text_from_url(url):
+def parse_full_page_text(url):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
@@ -109,16 +109,15 @@ def parse_text_from_url(url):
         driver.get(url)
         logger.info(f"Загружена страница для парсинга: {url}")
         
-        # Ждем, пока элемент не появится на странице
+        # Ждем, пока body не загрузится
         wait = WebDriverWait(driver, 10)
-        elements = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "section[class='Layout_content_rxJmq'] > ul > li")))
+        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         
-        parsed_text = []
-        for element in elements:
-            parsed_text.append(element.text.strip())
+        # Получаем весь текст со страницы
+        page_text = driver.find_element(By.TAG_NAME, "body").text
         
         logger.info("Текст успешно спарсен.")
-        return "\n\n".join(parsed_text)
+        return page_text
     except Exception as e:
         logger.error(f"Ошибка при парсинге текста: {str(e)}")
         return None
@@ -149,10 +148,14 @@ def callback_query(call):
     
     bot.answer_callback_query(call.id, "Парсим информацию...")
     
-    parsed_text = parse_text_from_url(url)
+    parsed_text = parse_full_page_text(url)
     
     if parsed_text:
-        bot.send_message(call.message.chat.id, parsed_text)
+        # Разделяем текст на части, если он слишком длинный
+        max_message_length = 4096
+        for i in range(0, len(parsed_text), max_message_length):
+            part = parsed_text[i:i+max_message_length]
+            bot.send_message(call.message.chat.id, part)
     else:
         bot.send_message(call.message.chat.id, "Произошла ошибка при парсинге информации.")
 
