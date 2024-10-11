@@ -142,7 +142,8 @@ def parse_full_page_text(url):
 def format_output(text):
     lines = text.split('\n')
     formatted_output = "Результати пошуку:\n│\n"
-    indent_stack = ["├── "]
+    current_indent = "├── "
+    sub_indent = "│   "
     case_icons = {
         "Кримінальне": "🔴",
         "Адміністративне": "🟢",
@@ -151,37 +152,26 @@ def format_output(text):
     }
 
     for line in lines:
-        line = line.strip()
-        if not line:
+        if line.strip() == "":
             continue
-
-        current_indent = "".join(indent_stack)
-
-        if "Результати пошуку:" in line:
-            formatted_output += f"{current_indent}{line.replace('Результати пошуку:', '').strip()}\n"
-            indent_stack.append("    ")
-        elif "Судовий реєстр:" in line:
-            formatted_output += f"{current_indent}{line}\n"
-            indent_stack.append("    ")
+        
+        if "Судовий реєстр:" in line:
+            formatted_output += f"{current_indent}Судовий реєстр: {line.split(':')[-1].strip()}\n"
+            current_indent = "│   ├── "
+            sub_indent = "│   │   "
         elif any(case in line for case in case_icons.keys()):
             for case, icon in case_icons.items():
                 if case in line:
                     formatted_output += f"{current_indent}{icon} {case}\n"
-                    indent_stack.append("    ")
+                    current_indent = sub_indent + "└── "
                     break
         elif "/" in line:
-            parts = line.split("/", 1)
-            formatted_output += f"{current_indent}{parts[0].strip()}/{parts[1].strip()}\n"
-            indent_stack.append("    ")
-        elif "Пов'язані" in line or "Кількість знайдених документів:" in line:
-            formatted_output += f"{current_indent}{line}:\n"
-            indent_stack.append("    ")
+            formatted_output += f"{current_indent}{line.strip()}\n"
+        elif "Пов'язані" in line:
+            formatted_output += f"{current_indent}{line.strip()}:\n"
+            current_indent = sub_indent + "│   └── "
         else:
-            formatted_output += f"{current_indent}{line}\n"
-
-        # Reduce indent if line starts with a name (assumed to be all caps)
-        if line.isupper() and indent_stack:
-            indent_stack.pop()
+            formatted_output += f"{sub_indent}{line.strip()}\n"
 
     return formatted_output
 
