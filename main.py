@@ -8,7 +8,7 @@ import logging
 import time
 import random
 from selenium.webdriver.common.by import By
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +23,6 @@ user_data = {}
 
 # Функция для транслитерации ФИО и формирования URL
 def transliterate_name(full_name):
-    # Словарь для транслитерации
     translit_dict = {
         'а': 'a', 'б': 'b', 'в': 'v', 'г': 'h', 'ґ': 'g', 'д': 'd', 'е': 'e', 'є': 'ie',
         'ж': 'zh', 'з': 'z', 'и': 'y', 'і': 'i', 'ї': 'i', 'й': 'i', 'к': 'k', 'л': 'l',
@@ -37,17 +36,14 @@ def transliterate_name(full_name):
         'Ю': 'Iu', 'Я': 'Ia'
     }
     
-    # Транслитерация
     transliterated = ''.join(translit_dict.get(char, char) for char in full_name)
-    
-    # Замена пробелов на подчеркивания и приведение к нижнему регистру
     formatted_name = transliterated.lower().replace(" ", "_")
     return formatted_name
 
-# Функция для парсинга кнопок и создания скриншота
-def get_parsed_text(url, full_name):
+# Функция для парсинга страницы и создания скриншота
+def get_screenshot_from_url(url):
     chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Открытие браузера в фоновом режиме
+    chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36")
@@ -59,59 +55,28 @@ def get_parsed_text(url, full_name):
         logger.info(f"Загружена страница: {url}")
         time.sleep(random.uniform(2, 5))  # Случайная задержка после загрузки страницы
         
-        # Ввод ФИО в поле поиска
-        search_input = driver.find_element(By.CSS_SELECTOR, 'input[class="SearchNameInput_input__M6_k8"]')
-        search_input.send_keys(full_name)
-        logger.info(f"ФИО введено: {full_name}")
-        
-        # Пауза для обновления страницы после ввода текста
-        time.sleep(5)
-
-        # Создание полного скриншота страницы
         screenshot_path = 'full_page_screenshot.png'
-        
-        # Определяем размер страницы для создания полного скриншота
         S = lambda X: driver.execute_script('return document.body.parentNode.scroll'+X)
         driver.set_window_size(S('Width'), S('Height'))
         driver.save_screenshot(screenshot_path)
         logger.info("Полный скриншот сохранен.")
         
-        # Поиск всех элементов кнопок с текстом
-        buttons = driver.find_elements(By.TAG_NAME, 'button')
-        filtered_buttons = []
-        if buttons:
-            for button in buttons:
-                button_text = button.text.strip()
-                # Убираем ненужные кнопки
-                if button_text not in ["Пошук за П.І.Б.", "Пошук за телефоном"] and button_text:
-                    filtered_buttons.append(button_text)
-            
-            if filtered_buttons:
-                parsed_text = f"Вот найденные люди:\n" + "\n".join(filtered_buttons)
-                logger.info(f"Распарсено {len(filtered_buttons)} кнопок.")
-            else:
-                logger.info("Нужные кнопки не найдены.")
-                parsed_text = "Нужные кнопки не найдены."
-        else:
-            logger.info("Кнопки не найдены.")
-            parsed_text = "Кнопки не найдены."
-        
-        return parsed_text, filtered_buttons, screenshot_path
+        return screenshot_path
 
     except Exception as e:
         logger.error(f"Произошла ошибка: {str(e)}")
-        return None, None, None
+        return None
 
     finally:
         driver.quit()
 
-# Функция для создания инлайн-кнопок с удалением апострофа из ссылки
+# Функция для создания инлайн-кнопок
 def create_inline_keyboard(button_texts):
     keyboard = InlineKeyboardMarkup()
     for text in button_texts:
-        transliterated_text = transliterate_name(text).replace("'", "")  # Удаляем апострофы из ссылки
-        url = f"https://dolg.xyz/ukr/{transliterated_text}"
-        keyboard.add(InlineKeyboardButton(text, url=url))  # Оставляем апострофы в тексте кнопки
+        transliterated_text = transliterate_name(text)
+        callback_data = transliterated_text  # Используем транслитерированное имя в качестве callback_data
+        keyboard.add(InlineKeyboardButton(text, callback_data=callback_data))
     return keyboard
 
 # Обработчик команды /start
@@ -126,21 +91,29 @@ def handle_name(message):
     full_name = user_data[message.chat.id]
     url = "https://dolg.xyz"
     
-    parsed_text, button_texts, screenshot_path = get_parsed_text(url, full_name)
+    parsed_text, button_texts, _ = get_parsed_text(url, full_name)
     
     if parsed_text and button_texts:
-        # Отправляем текст с кнопками
         bot.send_message(message.chat.id, parsed_text, reply_markup=create_inline_keyboard(button_texts))
-        
-        # Отправляем скриншот
-        if screenshot_path:
-            with open(screenshot_path, 'rb') as file:
-                bot.send_photo(message.chat.id, file)
-            os.remove(screenshot_path)
-        else:
-            bot.reply_to(message, "Произошла ошибка при создании скриншота.")
     else:
         bot.reply_to(message, "Произошла ошибка при получении данных. Попробуйте снова.")
+
+# Обработчик нажатий на инлайн-кнопки
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call: CallbackQuery):
+    full_name = call.data
+    url = f"https://dolg.xyz/ukr/{full_name}"
+    
+    bot.answer_callback_query(call.id, text="Выполняю переход по ссылке и создаю скриншот...")
+    
+    screenshot_path = get_screenshot_from_url(url)
+    
+    if screenshot_path:
+        with open(screenshot_path, 'rb') as file:
+            bot.send_photo(call.message.chat.id, file)
+        os.remove(screenshot_path)
+    else:
+        bot.send_message(call.message.chat.id, "Произошла ошибка при создании скриншота.")
 
 # Запуск бота
 bot.polling()
